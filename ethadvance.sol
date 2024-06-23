@@ -1,102 +1,79 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-contract Calculator {
-    int private result;
+contract CarRentalSystem {
+    address public owner;
+    uint256 public totalAvailableCars;
 
-    // Event to log the result of calculations
-    event CalculationResult(int result);
-    event ErrorOccurred(string errorMessage);
-
-    // Adds two numbers and updates the result
-    // Demonstrates require() by checking for overflow conditions
-    function add(int a, int b) public returns (int) {
-        require(a <= type(int).max - b, "Addition overflow");
-        result = a + b;
-        emit CalculationResult(result);
-        return result;
+    struct Car {
+        uint256 id;
+        string name;
+        bool available;
     }
 
-    // Subtracts the second number from the first and updates the result
-    // Demonstrates require() by checking for underflow conditions
-    function subtract(int a, int b) public returns (int) {
-        require(a >= type(int).min + b, "Subtraction underflow");
-        result = a - b;
-        emit CalculationResult(result);
-        return result;
+    mapping(uint256 => Car) public cars;
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only the contract owner can perform this action");
+        _;
     }
 
-    // Multiplies two numbers and updates the result
-    // Demonstrates require() by checking for overflow conditions
-    function multiply(int a, int b) public returns (int) {
-        require(b == 0 || a * b / b == a, "Multiplication overflow");
-        result = a * b;
-        emit CalculationResult(result);
-        return result;
+    constructor() {
+        owner = msg.sender;
+        totalAvailableCars = 0;
     }
 
-    // Divides the first number by the second and updates the result
-    // Uses require() to ensure the divisor is not zero
-    function divide(int a, int b) public returns (int) {
-        require(b != 0, "Division by zero is not allowed");
-        result = a / b;
-        emit CalculationResult(result);
-        return result;
+    function addCar(uint256 _id, string memory _name) public onlyOwner {
+        require(_id > 0, "Car ID must be greater than zero");
+        require(bytes(_name).length > 0, "Car name cannot be empty");
+        require(cars[_id].id == 0, "Car with this ID already exists");
+
+        cars[_id] = Car({
+            id: _id,
+            name: _name,
+            available: true
+        });
+
+        totalAvailableCars += 1;
     }
 
-    // Calculates the modulo of the first number by the second and updates the result
-    // Uses revert() if the divisor is zero
-    function mod(int a, int b) public returns (int) {
-        if (b == 0) {
-            revert("Modulo by zero is not allowed");
-        }
-        result = a % b;
-        emit CalculationResult(result);
-        return result;
+    function rentCar(uint256 _id) public {
+        require(cars[_id].id != 0, "Car with this ID does not exist");
+        require(cars[_id].available, "Car is not available for rent");
+
+        cars[_id].available = false;
+        totalAvailableCars -= 1;
+
+        // Assert the car is marked as unavailable and totalAvailableCars is updated
+        assert(!cars[_id].available);
+        assert(totalAvailableCars >= 0);
     }
 
-    // Resets the result to zero
-    // Uses assert() to ensure the result is zero after reset
-    function reset() public {
-        result = 0;
-        assert(result == 0); // Should always be true after reset
-        emit CalculationResult(result);
+    function returnCar(uint256 _id) public {
+        require(cars[_id].id != 0, "Car with this ID does not exist");
+        require(!cars[_id].available, "Car is already available");
+
+        cars[_id].available = true;
+        totalAvailableCars += 1;
+
+        // Assert the car is marked as available and totalAvailableCars is updated
+        assert(cars[_id].available);
+        assert(totalAvailableCars > 0);
     }
 
-    // Returns the current result
-    function getResult() public view returns (int) {
-        return result;
+    function getCarDetails(uint256 _id) public view returns (string memory, bool) {
+        require(cars[_id].id != 0, "Car with this ID does not exist");
+        Car memory car = cars[_id];
+        return (car.name, car.available);
     }
 
-    // Additional function to demonstrate require() with a custom condition
-    function checkPositive(int a) public pure returns (int) {
-        require(a > 0, "The number must be positive");
-        return a;
+    function _handleError(string memory _errorMessage) internal pure returns (string memory) {
+        return _errorMessage;
     }
 
-    // Additional function to demonstrate assert() with a condition that should never fail
-    function checkInvariant() public view returns (int) {
-        // Asserts that the result should never be negative as per our logic
-        // This is an example and may not be universally true in all contexts
-        assert(result >= 0);
-        return result;
-    }
-
-    // Additional function to demonstrate revert() in an unexpected scenario
-    function unexpectedRevert() public pure {
-        // Example scenario where a revert is triggered for unexpected conditions
-        revert("This function always reverts unexpectedly");
-    }
-
-    // Function to demonstrate error handling
-    function demoErrorHandling() view public {
-        // Example of deliberate error handling
-        if (result == 42) {
-            revert("The answer to everything is not allowed");
-        } else if (result < 0) {
-            require(result >= 0, "Result should never be negative");
-        } else {
-            assert(result != 13); // Example of a condition that should never be true
+    function exampleErrorHandling(uint256 _id) external view {
+        if (cars[_id].id == 0) {
+            revert(_handleError("Car with this ID does not exist"));
         }
     }
 }
